@@ -1,4 +1,3 @@
-// import SimpleLightbox from 'simplelightbox/dist/simple-lightbox';
 import SimpleLightbox from 'simplelightbox';
 import 'simplelightbox/dist/simple-lightbox.min.css';
 import { Notify } from 'notiflix/build/notiflix-notify-aio';
@@ -12,45 +11,8 @@ const refs = {
 let gallery = new SimpleLightbox('.gallery a');
 let currentPage = 1;
 let totalPages = 0;
-
-refs.searchForm.addEventListener('submit', onSubmitHandler);
-refs.btn.addEventListener('click', loadMore);
-window.addEventListener('scroll', handleScroll);
-
-function onSubmitHandler(e) {
-  e.preventDefault();
-  refs.btn.setAttribute('hidden', '');
-  refs.gallery.innerHTML = '';
-  fetchImages();
-  refs.btn.removeAttribute('hidden');
-}
-
-function fetchImages() {
-  const { value } = refs.searchForm.elements.searchQuery;
-  const API_KEY = '25182947-9cfc659c765cf87b0696ff639';
-  const hitsPerPage = 40;
-
-  return fetch(
-    `https://pixabay.com/api/?key=${API_KEY}&q=${value}&image_type=photo&orientation=horizontal&safesearch=true&page=${currentPage}&per_page=${hitsPerPage}&min_height='360'`
-  )
-    .then(response => response.json())
-    .then(({ hits, totalHits }) => {
-      totalPages = Math.round(totalHits / hitsPerPage);
-      if (currentPage === 1 && totalHits > 0) {
-        Notify.success(`Hooray! We found ${totalHits} images.`);
-      }
-      renderGallery(hits);
-    });
-}
-
-function renderGallery(hits) {
-  if (hits.length === 0) {
-    Notify.failure('Sorry, there are no images matching your search query. Please try again.');
-    return;
-  }
-  const items = hits.map(
-    ({ webformatURL, largeImageURL, tags, likes, views, comments, downloads }) => {
-      return `
+const itemTemplate = ({ largeImageURL, webformatURL, tags, likes, views, comments, downloads }) => {
+  return `
     <div class="photo-card">
         <a href=${largeImageURL}>
           <img src="${webformatURL}" alt="${tags}" loading="lazy" />
@@ -63,8 +25,52 @@ function renderGallery(hits) {
         </div>
       </div>
     `;
-    }
-  );
+};
+
+refs.searchForm.addEventListener('submit', onSubmitHandler);
+refs.btn.addEventListener('click', loadMore);
+window.addEventListener('scroll', handleScroll);
+
+async function onSubmitHandler(e) {
+  e.preventDefault();
+  currentPage = 1;
+  totalPages = 0;
+  refs.btn.setAttribute('hidden', '');
+  refs.gallery.innerHTML = '';
+  const hits = await fetchImages();
+  renderGallery(hits);
+  refs.btn.removeAttribute('hidden');
+}
+
+async function fetchImages() {
+  const SEARCH_URL = 'https://pixabay.com/api/';
+  const { value } = refs.searchForm.elements.searchQuery;
+  const hitsPerPage = 40;
+  const params = new URLSearchParams({
+    key: '25182947-9cfc659c765cf87b0696ff639',
+    q: value,
+    image_type: 'photo',
+    orientation: 'horizontal',
+    safesearch: true,
+    page: currentPage,
+    per_page: hitsPerPage,
+  });
+
+  const response = await fetch(`${SEARCH_URL}?${params.toString()}`);
+  const { hits, totalHits } = await response.json();
+  totalPages = Math.round(totalHits / hitsPerPage);
+  if (currentPage === 1 && totalHits > 0) {
+    Notify.success(`Hooray! We found ${totalHits} images.`);
+  }
+  return hits;
+}
+
+function renderGallery(hits) {
+  if (hits.length === 0) {
+    Notify.failure('Sorry, there are no images matching your search query. Please try again.');
+    return;
+  }
+  const items = hits.map(item => itemTemplate(item));
 
   refs.gallery.insertAdjacentHTML('beforeend', items.join(''));
   gallery.refresh();
@@ -72,21 +78,18 @@ function renderGallery(hits) {
   handleScroll();
 }
 
-function loadMore() {
+async function loadMore() {
   currentPage++;
   if (currentPage === totalPages) {
     Notify.info("We're sorry, but you've reached the end of search results.");
     refs.btn.setAttribute('hidden', '');
   }
 
-  fetchImages();
+  const hits = await fetchImages();
+  renderGallery(hits);
 }
 
 function smoothScroll() {
-  const { height: cardHeight } = document
-    .querySelector('.gallery')
-    .firstElementChild.getBoundingClientRect();
-
   window.scrollBy({
     top: '70',
     behavior: 'smooth',
@@ -99,16 +102,3 @@ function handleScroll() {
     loadMore();
   }
 }
-
-// function enableInfinityScroll() {
-//   const options = {
-//     root: document.querySelector('body'),
-//   };
-//   const handleObserver = e => {
-//     console.log(e);
-//     loadMore();
-//   };
-//   const observer = new IntersectionObserver(handleObserver, options);
-
-//   observer.observe(refs.btn);
-// }
