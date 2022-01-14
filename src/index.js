@@ -2,6 +2,7 @@ import SimpleLightbox from 'simplelightbox';
 import 'simplelightbox/dist/simple-lightbox.min.css';
 import { Notify } from 'notiflix/build/notiflix-notify-aio';
 import 'notiflix/dist/notiflix-3.2.2.min.css';
+import axios from 'axios';
 
 const refs = {
   searchForm: document.querySelector('.search-form'),
@@ -56,8 +57,9 @@ async function fetchImages() {
     per_page: hitsPerPage,
   });
 
-  const response = await fetch(`${SEARCH_URL}?${params.toString()}`);
-  const { hits, totalHits } = await response.json();
+  const response = await axios(`${SEARCH_URL}?${params.toString()}`);
+
+  const { hits, totalHits } = await response.data;
   totalPages = Math.round(totalHits / hitsPerPage);
   if (currentPage === 1 && totalHits > 0) {
     Notify.success(`Hooray! We found ${totalHits} images.`);
